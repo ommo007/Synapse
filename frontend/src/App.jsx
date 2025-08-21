@@ -1,14 +1,22 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
+import Home from './pages/Home'
+import Connect from './pages/Connect'
+import Timeline from './pages/Timeline'
+import CommitDetail from './pages/CommitDetail'
 
-
-export default function App() {
+function App() {
   return (
-    <h1 className="text-3xl font-bold underline">
-      Hello world!
-    </h1>
+    <Router>
+      <div className="min-h-screen bg-gray-900 text-white">
+        <Routes>
+          <Route path="/" element={<Home />} />
+          <Route path="/connect" element={<Connect />} />
+          <Route path="/project/:projectId" element={<Timeline />} />
+          <Route path="/commit/:sha" element={<CommitDetail />} />
+        </Routes>
+      </div>
+    </Router>
   )
 }
 
-
+export default App
