@@ -99,17 +99,31 @@ async def summarize_commit(
         select(Commit).where(Commit.sha == sha)
     )
     commit = commit_result.scalar_one_or_none()
-    
     if not commit:
         raise HTTPException(status_code=404, detail="Commit not found")
-    
+
+    # Get project for owner/repo
+    project_result = await db.execute(select(Project).where(Project.id == commit.project_id))
+    project = project_result.scalar_one_or_none()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    # Fetch commit details from GitHub for diff and files
+    gh_commit = await github_service.get_commit_details(
+        owner=project.github_owner,
+        repo=project.github_repo,
+        sha=sha
+    )
+    files = [f.get("filename") for f in (gh_commit.get("files") or [])]
+    patches = [(f.get("patch") or "") for f in (gh_commit.get("files") or []) if f.get("patch")]
+    diff_snippet = ("\n\n".join(patches))[:8000]
+
     try:
         summary = await portia_agent.summarize_commit(
             message=commit.message,
-            diff_snippet="",
-            files=commit.files_summary or []
+            diff_snippet=diff_snippet,
+            files=files
         )
-        
         ai_summary = CommitAI(
             sha=sha,
             simple_explanation=summary["simple_explanation"],
@@ -121,9 +135,7 @@ async def summarize_commit(
         )
         db.add(ai_summary)
         await db.commit()
-        
         return summary
-        
     except Exception as e:
         print(f"❌ AI summary failed: {e}")
         fallback_summary = {
@@ -133,7 +145,6 @@ async def summarize_commit(
             "tags": ["update"],
             "risk_level": "low"
         }
-        
         ai_summary = CommitAI(
             sha=sha,
             simple_explanation=fallback_summary["simple_explanation"],
@@ -144,5 +155,4 @@ async def summarize_commit(
         )
         db.add(ai_summary)
         await db.commit()
-        
         return fallback_summary
