@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 import os
+import asyncio
 from dotenv import load_dotenv
 
 from app.core.database import engine, Base
@@ -9,16 +10,34 @@ from app.api import auth, projects, commits, ai
 
 load_dotenv()
 
+async def init_database():
+    """Initialize database with retry logic"""
+    max_retries = 3
+    for attempt in range(max_retries):
+        try:
+            async with engine.begin() as conn:
+                await conn.run_sync(Base.metadata.create_all)
+            print("✅ Database connected to Supabase successfully!")
+            return True
+        except Exception as e:
+            print(f"❌ Database connection attempt {attempt + 1} failed: {e}")
+            if attempt < max_retries - 1:
+                print("⏳ Retrying in 2 seconds...")
+                await asyncio.sleep(2)
+            else:
+                print("❌ All database connection attempts failed")
+                return False
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    try:
-        async with engine.begin() as conn:
-            await conn.run_sync(Base.metadata.create_all)
-        print("✅ Database connected to Supabase successfully!")
-    except Exception as e:
-        print(f"❌ Database connection failed: {e}")
+    # Startup
+    await init_database()
     yield
-    await engine.dispose()
+    # Shutdown
+    try:
+        await engine.dispose()
+    except:
+        pass
 
 app = FastAPI(
     title="Synapse API",

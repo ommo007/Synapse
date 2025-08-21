@@ -10,14 +10,22 @@ DATABASE_URL = os.getenv("DATABASE_URL")
 if DATABASE_URL and DATABASE_URL.startswith("postgresql://"):
     DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://", 1)
 
+# More robust connection settings for pgbouncer
 engine = create_async_engine(
     DATABASE_URL,
-    echo=True,
+    echo=False,  # Reduce logging noise
     poolclass=NullPool,
     connect_args={
         "statement_cache_size": 0,
-        "prepared_statement_cache_size": 0
-    }
+        "prepared_statement_cache_size": 0,
+        "command_timeout": 60,
+        "server_settings": {
+            "jit": "off",
+            "application_name": "synapse_app"
+        }
+    },
+    pool_pre_ping=True,
+    pool_recycle=300
 )
 
 AsyncSessionLocal = sessionmaker(
