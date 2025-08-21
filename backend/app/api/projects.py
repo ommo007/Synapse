@@ -6,7 +6,6 @@ from app.models.models import Project, User, Commit
 from app.services.github_service import github_service
 from datetime import datetime
 from pydantic import BaseModel
-import uuid
 
 class ProjectCreate(BaseModel):
     name: str
@@ -20,8 +19,6 @@ async def create_project(
     project: ProjectCreate,
     db: AsyncSession = Depends(get_db),
 ):
-    """Connect a GitHub repository and fetch real commits"""
-    # Create dummy user if needed
     user_result = await db.execute(select(User).where(User.id == 1))
     user = user_result.scalar_one_or_none()
     
@@ -37,7 +34,6 @@ async def create_project(
         await db.commit()
         await db.refresh(user)
     
-    # Check if project exists
     result = await db.execute(
         select(Project).where(
             Project.github_owner == project.github_owner,
@@ -47,7 +43,6 @@ async def create_project(
     existing = result.scalar_one_or_none()
     
     if existing:
-        # Check if it has commits
         commits_result = await db.execute(
             select(Commit).where(Commit.project_id == existing.id).limit(1)
         )
@@ -60,7 +55,6 @@ async def create_project(
             print(f"📋 Project {existing.id} exists but no commits, fetching...")
             db_project = existing
     else:
-        # Create new project
         db_project = Project(
             name=project.name,
             github_owner=project.github_owner,
@@ -72,13 +66,10 @@ async def create_project(
         await db.refresh(db_project)
         print(f"📋 Created new project {db_project.id}")
     
-    # Fetch commits from GitHub
     print(f"🔍 Fetching commits for {project.github_owner}/{project.github_repo}")
     
     all_commits = []
-    max_pages = 5  # Limit for demo
-    
-    for page in range(1, max_pages + 1):
+    for page in range(1, 6):
         try:
             github_commits = await github_service.get_public_repo_commits(
                 project.github_owner,
@@ -91,9 +82,9 @@ async def create_project(
                 break
                 
             all_commits.extend(github_commits)
-            print(f"📄 Page {page}: {len(github_commits)} commits (Total: {len(all_commits)})")
+            print(f"📄 Page {page}: {len(github_commits)} commits")
             
-            if len(all_commits) >= 100:  # Limit total commits
+            if len(all_commits) >= 100:
                 break
                 
         except Exception as e:
@@ -102,11 +93,9 @@ async def create_project(
     
     print(f"✅ Fetched {len(all_commits)} commits from GitHub")
     
-    # Store commits in database
     stored_count = 0
     for commit_data in all_commits:
         try:
-            # Check if commit already exists
             existing_commit = await db.execute(
                 select(Commit).where(Commit.sha == commit_data["sha"])
             )
@@ -127,7 +116,7 @@ async def create_project(
             stored_count += 1
             
         except Exception as e:
-            print(f"❌ Error storing commit {commit_data.get('sha', 'unknown')}: {e}")
+            print(f"❌ Error storing commit: {e}")
             continue
     
     try:
@@ -144,7 +133,6 @@ async def get_project(
     project_id: int,
     db: AsyncSession = Depends(get_db)
 ):
-    """Get project details"""
     result = await db.execute(
         select(Project).where(Project.id == project_id)
     )
@@ -162,7 +150,6 @@ async def get_project_commits(
     per_page: int = 20,
     db: AsyncSession = Depends(get_db)
 ):
-    """Get commits for a project"""
     offset = (page - 1) * per_page
     
     result = await db.execute(
@@ -174,7 +161,6 @@ async def get_project_commits(
     )
     commits = result.scalars().all()
     
-    # Convert to dict format
     commits_data = []
     for commit in commits:
         commit_dict = {

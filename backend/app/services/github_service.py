@@ -23,14 +23,13 @@ class GitHubService:
         """Get commits from a PUBLIC repository with pagination"""
         async with httpx.AsyncClient() as client:
             try:
-                # Try main branch first
                 response = await client.get(
                     f"https://api.github.com/repos/{owner}/{repo}/commits",
                     headers={"Accept": "application/vnd.github.v3+json"},
                     params={"sha": branch, "per_page": per_page, "page": page}
                 )
                 
-                if response.status_code == 409:  # Branch doesn't exist, try master
+                if response.status_code == 409:
                     response = await client.get(
                         f"https://api.github.com/repos/{owner}/{repo}/commits",
                         headers={"Accept": "application/vnd.github.v3+json"},
@@ -40,7 +39,7 @@ class GitHubService:
                 if response.status_code == 200:
                     return response.json()
                 else:
-                    print(f"GitHub API error: {response.status_code} - {response.text}")
+                    print(f"GitHub API error: {response.status_code}")
                     return []
                     
             except Exception as e:

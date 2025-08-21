@@ -1,0 +1,16 @@
+fastapi
+uvicorn[standard]
+sqlalchemy
+psycopg2-binary
+python-dotenv>=1.0.1
+httpx
+pydantic>=2.11.5
+pydantic-settings
+python-jose[cryptography]
+passlib[bcrypt]
+python-multipart
+portia-sdk-python[all]
+openai
+PyGithub
+alembic
+asyncpg
