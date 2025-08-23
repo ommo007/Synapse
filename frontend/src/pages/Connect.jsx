@@ -455,7 +455,7 @@ export default function Connect() {
                   <div className="text-xs text-slate-400 bg-slate-800/30 rounded-lg p-3">
                     <p className="mb-2 font-medium text-slate-300">Examples:</p>
                     <div className="space-y-1 font-mono">
-                      <p>github.com/facebook/react</p>
+                      <p>github.com/google-gemini/gemini-cli</p>
                       <p>github.com/your-username/your-repo</p>
                     </div>
                   </div>

@@ -8,19 +8,20 @@ from portia import (
     Config,
     LLMProvider,
     Portia,
-    example_tool_registry,
 )
 
 load_dotenv()
 GOOGLE_API_KEY = os.getenv('GOOGLE_API_KEY')
 
+# Configure Portia with proper settings
 google_config = Config.from_default(
     llm_provider=LLMProvider.GOOGLE,
-    default_model="google/gemini-2.0-flash-exp",
-    google_api_key=GOOGLE_API_KEY
+    default_model="google/gemini-1.5-flash",
+    google_api_key=GOOGLE_API_KEY,
 )
 
-portia = Portia(config=google_config, tools=example_tool_registry)
+# Initialize Portia without tools to avoid validation issues
+portia = Portia(config=google_config, tools=[])
 
 class PortiaAgent:
     async def summarize_commit(
@@ -29,245 +30,300 @@ class PortiaAgent:
         diff_snippet: str,
         files: List[str]
     ) -> Dict[str, Any]:
+        
+        # Use a structured prompt that Portia can handle better
         prompt = f"""
-Analyze this Git commit and return ONLY a JSON object with this exact structure:
+You are a code analysis assistant. Analyze this Git commit and provide a structured summary.
 
+COMMIT INFORMATION:
+Message: {message}
+Files Changed: {', '.join(files[:5]) if files else 'No files specified'}
+Code Diff Sample: {diff_snippet[:1000] if diff_snippet else 'No diff available'}
+
+TASK: Generate a JSON object with this exact structure:
 {{
-  "simple_explanation": "Brief explanation in 2-3 sentences",
-  "technical_summary": ["Technical point 1", "Technical point 2", "Technical point 3"],
+  "simple_explanation": "A 2-3 sentence explanation of what this commit does in simple terms",
+  "technical_summary": ["First technical detail", "Second technical detail", "Third technical detail"],
   "how_to_test": {{
-    "steps": ["Step 1", "Step 2"],
+    "steps": ["First test step", "Second test step"],
     "curl": null,
     "postman": null
   }},
-  "tags": ["tag1", "tag2", "tag3"],
+  "tags": ["relevant", "commit", "tags"],
   "risk_level": "low"
 }}
 
-Commit message: {message}
-Files: {', '.join(files[:5]) if files else 'none'}
-Diff: {diff_snippet[:1000] if diff_snippet else 'none'}
-
-Return ONLY the JSON object, no markdown, no explanation.
+Return ONLY the JSON object, no additional text or formatting.
 """
+        
         try:
-            # Run Portia in executor to avoid blocking
-            loop = asyncio.get_event_loop()
-            plan_run = await loop.run_in_executor(None, portia.run, prompt)
+            print(f"🧠 Generating AI summary with Portia...")
             
-            # Extract output from plan_run object - FIX THIS PART
-            output = None
+            # Use the standard Portia run method
+            response = await self._run_portia_safely(prompt)
             
-            # Try to get final_output from the plan_run
-            if hasattr(plan_run, 'final_output') and plan_run.final_output:
-                if isinstance(plan_run.final_output, str):
-                    output = plan_run.final_output
-                elif hasattr(plan_run.final_output, '__iter__'):
-                    # If it's a set or list, get the first item
-                    try:
-                        output = next(iter(plan_run.final_output))
-                    except (StopIteration, TypeError):
-                        output = str(plan_run.final_output)
-                else:
-                    output = str(plan_run.final_output)
+            if not response:
+                print("❌ No response from Portia")
+                return self._fallback_summary(message)
             
-            # If no final_output, try other attributes
-            if not output:
-                for attr in ['output', 'result', 'content']:
-                    if hasattr(plan_run, attr):
-                        attr_value = getattr(plan_run, attr)
-                        if attr_value:
-                            output = str(attr_value)
-                            break
+            # Parse the response
+            parsed_data = self._parse_json_response(response)
             
-            # Last resort - convert whole object to string
-            if not output:
-                output = str(plan_run)
-            
-            print(f"🔍 Raw output: {output[:200]}...")
-            
-            # Clean and parse JSON
-            json_data = self._extract_and_parse_json(output)
-            
-            if json_data:
-                # Ensure required fields
-                json_data = self._validate_and_fix_data(json_data, message)
+            if parsed_data:
+                validated_data = self._validate_response_data(parsed_data, message)
                 print(f"✅ AI Summary generated successfully")
-                return json_data
+                return validated_data
             else:
-                print("❌ Failed to parse JSON")
+                print("❌ Failed to parse JSON from response")
                 return self._fallback_summary(message)
                 
         except Exception as e:
-            print(f"❌ Portia error: {e}")
+            print(f"❌ Portia error: {str(e)}")
             return self._fallback_summary(message)
-
-    def _extract_and_parse_json(self, output):
-        """Extract and parse JSON from output"""
+    
+    async def _run_portia_safely(self, prompt: str) -> str:
+        """Run Portia safely with proper error handling"""
         try:
-            # Remove markdown if present
-            cleaned = output
-            if "```json" in output:
-                cleaned = output.split("```json")[1].split("```")[0]
-            elif "```" in output:
-                cleaned = output.split("```")[1].split("```")[0]
+            loop = asyncio.get_event_loop()
             
-            # Try to find JSON object
-            cleaned = cleaned.strip()
+            def execute_portia():
+                try:
+                    # Use the standard run method
+                    result = portia.run(prompt)
+                    
+                    # Extract output from the result
+                    if result is None:
+                        return None
+                    
+                    # Try to get the final output
+                    if hasattr(result, 'final_output'):
+                        output = result.final_output
+                        # Handle set type (common in Portia responses)
+                        if isinstance(output, set):
+                            output_list = list(output)
+                            return output_list[0] if output_list else None
+                        elif isinstance(output, str):
+                            return output
+                        else:
+                            return str(output)
+                    
+                    # Try other attributes
+                    for attr in ['output', 'result', 'content', 'response', 'answer']:
+                        if hasattr(result, attr):
+                            value = getattr(result, attr)
+                            if value:
+                                return str(value)
+                    
+                    # Try to extract from steps if available
+                    if hasattr(result, 'steps') and result.steps:
+                        last_step = result.steps[-1]
+                        if hasattr(last_step, 'output'):
+                            return str(last_step.output)
+                    
+                    # Convert the whole result to string as last resort
+                    return str(result)
+                    
+                except Exception as e:
+                    print(f"❌ Portia execution error: {e}")
+                    # Try a simpler approach with direct config
+                    try:
+                        from langchain_google_genai import ChatGoogleGenerativeAI
+                        
+                        # Use LangChain directly as a fallback
+                        llm = ChatGoogleGenerativeAI(
+                            model="gemini-1.5-flash",
+                            google_api_key=GOOGLE_API_KEY,
+                            temperature=0.3
+                        )
+                        
+                        response = llm.invoke(prompt)
+                        if hasattr(response, 'content'):
+                            return response.content
+                        return str(response)
+                        
+                    except Exception as fallback_e:
+                        print(f"❌ Fallback LLM error: {fallback_e}")
+                        return None
             
-            # Find the first { and last }
-            start = cleaned.find('{')
-            end = cleaned.rfind('}')
+            response = await loop.run_in_executor(None, execute_portia)
+            return response
             
-            if start != -1 and end != -1 and end > start:
-                json_str = cleaned[start:end+1]
+        except Exception as e:
+            print(f"❌ Run error: {e}")
+            return None
+    
+    def _parse_json_response(self, text):
+        """Parse JSON from text response"""
+        if not text:
+            return None
+            
+        try:
+            # Convert to string and clean
+            text_str = str(text).strip()
+            
+            # Remove markdown code blocks
+            if "```json" in text_str:
+                start = text_str.find("```json") + 7
+                end = text_str.find("```", start)
+                if end != -1:
+                    text_str = text_str[start:end].strip()
+            elif "```" in text_str:
+                start = text_str.find("```") + 3
+                end = text_str.find("```", start)
+                if end != -1:
+                    text_str = text_str[start:end].strip()
+            
+            # Find JSON object
+            start_idx = text_str.find('{')
+            end_idx = text_str.rfind('}')
+            
+            if start_idx != -1 and end_idx != -1 and end_idx > start_idx:
+                json_str = text_str[start_idx:end_idx + 1]
+                # Clean up common issues
+                json_str = json_str.replace('\n', ' ').replace('\r', '')
                 return json.loads(json_str)
             
-            # If no braces found, try parsing the whole thing
-            return json.loads(cleaned)
+            # Try parsing the whole string
+            return json.loads(text_str)
             
         except json.JSONDecodeError as e:
-            print(f"JSON parse error: {e}")
-            print(f"Trying to parse: {cleaned[:200]}...")
+            print(f"❌ JSON parse error: {e}")
+            print(f"❌ Attempted to parse: {text_str[:200] if text_str else 'empty'}...")
             return None
         except Exception as e:
-            print(f"Extraction error: {e}")
+            print(f"❌ Parse error: {e}")
             return None
-
-    def _validate_and_fix_data(self, data, message):
-        """Ensure all required fields exist with proper types"""
+    
+    def _validate_response_data(self, data, message):
+        """Validate and ensure all required fields exist"""
         if not isinstance(data, dict):
             return self._fallback_summary(message)
         
-        # Fix simple_explanation
-        if "simple_explanation" not in data or not data["simple_explanation"]:
-            data["simple_explanation"] = f"This commit: {message[:100]}"
+        result = {}
         
-        # Fix technical_summary
-        if "technical_summary" not in data or not isinstance(data["technical_summary"], list):
-            data["technical_summary"] = ["Code changes made", "Updates applied"]
+        # Validate each field
+        result["simple_explanation"] = str(data.get("simple_explanation", f"This commit: {message[:100]}"))
         
-        # Fix how_to_test
-        if "how_to_test" not in data or not isinstance(data["how_to_test"], dict):
-            data["how_to_test"] = {"steps": ["Test the changes"], "curl": None, "postman": None}
-        elif "steps" not in data["how_to_test"]:
-            data["how_to_test"]["steps"] = ["Test the changes"]
+        tech_summary = data.get("technical_summary", [])
+        if isinstance(tech_summary, list) and tech_summary:
+            result["technical_summary"] = [str(item) for item in tech_summary[:5]]
+        else:
+            result["technical_summary"] = ["Code changes were made", "Files were updated"]
         
-        # Fix tags
-        if "tags" not in data or not isinstance(data["tags"], list):
-            data["tags"] = ["update"]
+        how_to_test = data.get("how_to_test", {})
+        if isinstance(how_to_test, dict):
+            result["how_to_test"] = {
+                "steps": how_to_test.get("steps", ["Test the changes"]),
+                "curl": how_to_test.get("curl"),
+                "postman": how_to_test.get("postman")
+            }
+        else:
+            result["how_to_test"] = {
+                "steps": ["Review and test the changes"],
+                "curl": None,
+                "postman": None
+            }
         
-        # Fix risk_level
-        if "risk_level" not in data or data["risk_level"] not in ["low", "medium", "high"]:
-            data["risk_level"] = "low"
+        tags = data.get("tags", [])
+        if isinstance(tags, list) and tags:
+            result["tags"] = [str(tag) for tag in tags[:5]]
+        else:
+            result["tags"] = ["update"]
         
-        return data
-
+        risk = data.get("risk_level", "low")
+        result["risk_level"] = risk if risk in ["low", "medium", "high"] else "low"
+        result["plan_run_id"] = None
+        
+        return result
+    
     def _fallback_summary(self, message: str) -> Dict[str, Any]:
         """Fallback summary when AI fails"""
         return {
-            "simple_explanation": f"This commit: {message[:100]}",
-            "technical_summary": ["Code changes were made", "Updates were applied"],
+            "simple_explanation": f"This commit makes changes to the codebase: {message[:100]}{'...' if len(message) > 100 else ''}",
+            "technical_summary": [
+                "Code modifications were made",
+                "Files were updated in the repository",
+                "Review the diff for specific changes"
+            ],
             "how_to_test": {
-                "steps": ["Review the changes", "Test the affected functionality"],
+                "steps": [
+                    "Pull the latest changes",
+                    "Review modified files",
+                    "Test affected functionality"
+                ],
                 "curl": None,
                 "postman": None
             },
-            "tags": ["update"],
+            "tags": ["update", "code-change"],
             "risk_level": "low",
             "plan_run_id": None
         }
 
     async def answer_question(self, question: str, context_blocks: List[Dict]) -> Dict[str, Any]:
         """Answer questions about commits"""
-        try:
-            context_str = "\n\n".join([
-                f"SHA: {c['sha']}\nMsg:{c['message']}\nSummary:{c.get('summary', 'N/A')}\nFiles: {', '.join(c.get('files', []))}" 
-                for c in context_blocks[:3]  # Reduced to 3 for better context
-            ])
-            
-            prompt = f"""Answer this question based on the commit context:
+        
+        # Build clear context
+        context_lines = []
+        for i, block in enumerate(context_blocks[:3], 1):
+            context_lines.append(f"Commit {i}:")
+            context_lines.append(f"  SHA: {block['sha'][:8]}")
+            context_lines.append(f"  Message: {block['message']}")
+            context_lines.append(f"  Files: {', '.join(block.get('files', [])[:3])}")
+            context_lines.append(f"  Summary: {block.get('summary', 'No summary')}")
+            context_lines.append("")
+        
+        context_str = '\n'.join(context_lines)
+        
+        prompt = f"""
+You are a helpful assistant that explains Git commits to developers.
 
-Context:
-{context_str[:2000]}
+COMMIT CONTEXT:
+{context_str}
 
-Question: {question}
+USER QUESTION: {question}
 
-Provide a clear, helpful answer in plain text. No JSON, no markdown formatting.
+Please provide a clear, informative answer based on the commit information above.
+Be specific and reference the actual commit details when relevant.
+
+Answer in plain text only.
 """
-            print(f"🤖 Asking AI: {question}")
+        
+        try:
+            print(f"🤖 Answering question with Portia...")
             
-            # Run Portia synchronously in a simple way
-            try:
-                loop = asyncio.get_event_loop()
-                plan_run = await loop.run_in_executor(None, self._run_portia_safely, prompt)
-                
-                # Extract answer from plan_run
-                answer = self._extract_answer_from_plan_run(plan_run)
-                
-                print(f"✅ AI answered: {answer[:100]}...")
+            # Get response from Portia
+            answer_text = await self._run_portia_safely(prompt)
+            
+            if not answer_text:
                 return {
-                    "answer": answer,
-                    "plan_run_id": getattr(plan_run, "id", None)
-                }
-                
-            except Exception as portia_error:
-                print(f"❌ Portia execution error: {portia_error}")
-                return {
-                    "answer": f"Based on the commit '{context_blocks[0]['message'] if context_blocks else 'Final Push'}', this appears to be a code update. {question}",
+                    "answer": "I'm having trouble understanding your question. Could you please rephrase it or provide more context?",
                     "plan_run_id": None
                 }
-                
+            
+            # Clean up the answer
+            answer_text = str(answer_text).strip()
+            
+            # Remove any JSON artifacts if present
+            if answer_text.startswith('{') and answer_text.endswith('}'):
+                try:
+                    json_data = json.loads(answer_text)
+                    if isinstance(json_data, dict) and 'answer' in json_data:
+                        answer_text = json_data['answer']
+                except:
+                    pass  # Keep original text if not valid JSON
+            
+            print(f"✅ Portia answered successfully")
+            return {
+                "answer": answer_text,
+                "plan_run_id": None
+            }
+            
         except Exception as e:
             print(f"❌ Error in answer_question: {e}")
             return {
-                "answer": "I'm having trouble processing this question. This appears to be a commit with code changes - please try asking something more specific.",
+                "answer": "I'm experiencing technical difficulties. Please try your question again in a moment.",
                 "plan_run_id": None
             }
-    
-    def _run_portia_safely(self, prompt: str):
-        """Run Portia synchronously in a safe way"""
-        try:
-            return portia.run(prompt)
-        except Exception as e:
-            print(f"❌ Portia run error: {e}")
-            return None
-    
-    def _extract_answer_from_plan_run(self, plan_run) -> str:
-        """Extract answer from plan_run object"""
-        if not plan_run:
-            return "I couldn't generate an answer at this time."
-        
-        # Try different ways to extract the answer
-        try:
-            # Method 1: final_output
-            if hasattr(plan_run, 'final_output') and plan_run.final_output:
-                if isinstance(plan_run.final_output, str):
-                    return plan_run.final_output
-                elif hasattr(plan_run.final_output, '__iter__'):
-                    try:
-                        return next(iter(plan_run.final_output))
-                    except (StopIteration, TypeError):
-                        return str(plan_run.final_output)
-                else:
-                    return str(plan_run.final_output)
-            
-            # Method 2: Try other common attributes
-            for attr in ['output', 'result', 'content', 'response']:
-                if hasattr(plan_run, attr):
-                    attr_value = getattr(plan_run, attr)
-                    if attr_value:
-                        return str(attr_value)
-            
-            # Method 3: Convert whole object to string and extract meaningful part
-            plan_str = str(plan_run)
-            if len(plan_str) > 50:  # If it's a meaningful string
-                return plan_str[:500]  # Limit length
-            
-            return "I processed your question but couldn't extract a clear answer."
-            
-        except Exception as e:
-            print(f"❌ Error extracting answer: {e}")
-            return "I encountered an error while processing your question."
 
+# Create the agent instance
 portia_agent = PortiaAgent()
