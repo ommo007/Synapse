@@ -1,11 +1,12 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from datetime import datetime
 from app.core.database import get_db
-from app.models.models import Commit, CommitAI
+from app.models.models import Commit, CommitAI, Project, User
 from app.services.portia_agent import portia_agent
 from app.services.github_service import github_service
-from app.models.models import Project
+from app.services.gemini_service import gemini_service
 
 router = APIRouter()
 
@@ -156,3 +157,58 @@ async def summarize_commit(
         db.add(ai_summary)
         await db.commit()
         return fallback_summary
+from app.services.gemini_service import gemini_service
+
+@router.get("/{sha}/gemini-summary")
+async def get_gemini_summary(
+    sha: str,
+    request: Request,
+    db: AsyncSession = Depends(get_db)
+):
+    """Get Gemini AI summary for a commit"""
+    # Get commit from DB
+    result = await db.execute(select(Commit).where(Commit.sha == sha))
+    commit = result.scalar_one_or_none()
+    if not commit:
+        raise HTTPException(status_code=404, detail="Commit not found")
+    
+    # Get project for GitHub details
+    project_result = await db.execute(
+        select(Project).where(Project.id == commit.project_id)
+    )
+    project = project_result.scalar_one_or_none()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    
+    # Get GitHub token (from cookie or from project owner)
+    token = request.cookies.get("github_token")
+    if not token:
+        # Try to get from project owner
+        owner_result = await db.execute(
+            select(User).where(User.id == project.connected_by_user_id)
+        )
+        owner = owner_result.scalar_one_or_none()
+        if owner and owner.access_token:
+            token = owner.access_token
+    
+    # Fetch commit details from GitHub
+    gh_commit = await github_service.get_commit_details(
+        owner=project.github_owner,
+        repo=project.github_repo,
+        sha=sha
+    )
+    
+    files = gh_commit.get("files", [])
+    
+    # Generate Gemini summary
+    summary = await gemini_service.summarize_commit(
+        message=commit.message,
+        files=files
+    )
+    
+    return {
+        "sha": sha,
+        "message": commit.message,
+        "gemini_summary": summary,
+        "generated_at": datetime.utcnow().isoformat()
+    }
