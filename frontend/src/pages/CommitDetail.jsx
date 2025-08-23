@@ -34,11 +34,20 @@ export default function CommitDetail() {
 
     setAsking(true)
     try {
-      const response = await aiAPI.ask(commit.project_id, {
+      const response = await aiAPI.askQuestion({
         sha,
         question,
+        project_id: commit.project_id,
       })
-      setQna([...qna, response.data])
+      // Add question and id to the answer object for Q&A history
+      setQna([
+        ...qna,
+        {
+          id: Date.now(),
+          question,
+          answer: response.data.answer || response.data,
+        },
+      ])
       setQuestion('')
     } catch (error) {
       console.error('Failed to ask question:', error)
@@ -62,23 +71,41 @@ export default function CommitDetail() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900/20 to-slate-900 flex items-center justify-center">
+      <div className="min-h-screen bg-slate-950 text-white flex items-center justify-center">
         <div className="flex items-center gap-3 text-slate-300">
-          <svg className="w-6 h-6 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="w-5 h-5 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
           </svg>
-          <span className="text-lg">Loading commit details...</span>
+          <span className="text-base">Loading commit details...</span>
+        </div>
+      </div>
+    )
+  }
+
+  if (!commit) {
+    return (
+      <div className="min-h-screen bg-slate-950 text-white flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-4xl mb-4">😕</div>
+          <div className="text-xl font-bold text-white mb-2">Commit Not Found</div>
+          <div className="text-slate-400 mb-6">We couldn't load this commit. It might not exist or there was an error.</div>
+          <button
+            onClick={goBack}
+            className="px-4 py-2 bg-gradient-to-r from-violet-600 to-blue-600 rounded-lg text-white font-medium hover:from-violet-700 hover:to-blue-700 transition-all duration-300"
+          >
+            Go Back
+          </button>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900/20 to-slate-900 relative overflow-hidden">
-      {/* Background Elements */}
-      <div className="absolute inset-0 bg-grid-slate-700/15 bg-[length:50px_50px] opacity-30"></div>
-      <div className="absolute top-1/4 left-1/6 w-48 h-48 bg-violet-500/8 rounded-full blur-2xl animate-pulse"></div>
-      <div className="absolute bottom-1/4 right-1/6 w-48 h-48 bg-blue-500/8 rounded-full blur-2xl animate-pulse delay-1000"></div>
+    <div className="min-h-screen bg-slate-950 text-white relative overflow-hidden">
+      {/* Refined Background */}
+      <div className="absolute inset-0 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950"></div>
+      <div className="absolute top-0 right-0 w-1/2 h-1/2 bg-gradient-to-bl from-violet-500/3 to-transparent rounded-full blur-3xl"></div>
+      <div className="absolute bottom-0 left-0 w-1/2 h-1/2 bg-gradient-to-tr from-blue-500/3 to-transparent rounded-full blur-3xl"></div>
       
       <div className="relative z-10 container mx-auto px-4 py-6 max-w-5xl">
         {/* Back Button */}
@@ -98,14 +125,10 @@ export default function CommitDetail() {
             <div className="flex items-start justify-between mb-6">
               <div className="flex-1">
                 <div className="flex items-center gap-3 mb-4">
-                  <div className="p-3 bg-gradient-to-br from-violet-500/20 to-purple-500/20 rounded-xl border border-violet-500/30">
-                    <svg className="w-6 h-6 text-violet-400" fill="currentColor" viewBox="0 0 20 20">
-                      <path d="M4 4a2 2 0 00-2 2v1h16V6a2 2 0 00-2-2H4zM18 9H2v5a2 2 0 002 2h12a2 2 0 002-2V9zM4 13a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm5-1a1 1 0 100 2h1a1 1 0 100-2H9z" />
-                    </svg>
-                  </div>
+                  
                   <div>
                     <div className="text-sm font-semibold text-violet-400 uppercase tracking-wider mb-1">Commit Details</div>
-                    <div className="text-xs text-slate-400">In-depth AI analysis</div>
+                    
                   </div>
                 </div>
                 
@@ -124,21 +147,8 @@ export default function CommitDetail() {
                   </div>
                 )}
               </div>
-
-              {commit?.ai_summary && (
-                <div className="ml-6 flex flex-col items-end gap-3">
-                  <div className={`px-5 py-3 rounded-xl text-sm font-bold border-2 shadow-lg ${getRiskLevelColor(commit.ai_summary.risk_level)}`}>
-                    <div className="flex items-center gap-3">
-                      <div className="w-3 h-3 rounded-full bg-current animate-pulse"></div>
-                      <span className="tracking-wider">{commit.ai_summary.risk_level?.toUpperCase() || 'ANALYZED'}</span>
-                    </div>
-                  </div>
-                  <div className="text-xs text-slate-400 text-right">
-                    AI Risk Assessment
-                  </div>
-                </div>
-              )}
             </div>
+
             
             {/* Enhanced Professional Meta Grid */}
             <div className="grid md:grid-cols-4 gap-6 text-sm">
@@ -163,7 +173,6 @@ export default function CommitDetail() {
                     </svg>
                   </div>
                   <div>
-                    
                     <div className="text-xs text-slate-400 uppercase tracking-wider font-semibold">Committed</div>
                     <div className="text-white font-bold text-lg">
                       {commit && format(new Date(commit.committed_at), 'MMM d, yyyy')}
@@ -252,42 +261,6 @@ export default function CommitDetail() {
                 </ul>
               </div>
 
-              {/* How to Test */}
-              {commit.ai_summary.how_to_test?.steps && (
-                <div className="lg:col-span-2 bg-slate-900/60 backdrop-blur border border-slate-700/50 rounded-xl p-6 shadow-lg">
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="p-2 bg-green-500/20 rounded-lg">
-                      <span className="text-2xl">🧪</span>
-                    </div>
-                    <h3 className="text-xl font-semibold text-white">How to Test</h3>
-                  </div>
-                  <ol className="space-y-3 text-slate-300 mb-4">
-                    {commit.ai_summary.how_to_test.steps.map((step, i) => (
-                      <li key={i} className="flex items-start gap-3">
-                        <div className="w-6 h-6 bg-green-500/20 text-green-400 rounded-full flex items-center justify-center text-sm font-semibold flex-shrink-0">
-                          {i + 1}
-                        </div>
-                        <span>{step}</span>
-                      </li>
-                    ))}
-                  </ol>
-                  
-                  {commit.ai_summary.how_to_test.curl && (
-                    <div className="bg-slate-800/60 rounded-lg p-4 border border-slate-700/30">
-                      <div className="flex items-center gap-2 mb-2">
-                        <svg className="w-4 h-4 text-green-400" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M2 5a2 2 0 012-2h12a2 2 0 012 2v10a2 2 0 01-2 2H4a2 2 0 01-2-2V5zm3.293 1.293a1 1 0 011.414 0l3 3a1 1 0 010 1.414l-3 3a1 1 0 01-1.414-1.414L7.586 10 5.293 7.707a1 1 0 010-1.414zM11 12a1 1 0 100 2h3a1 1 0 100-2h-3z" clipRule="evenodd" />
-                        </svg>
-                        <span className="text-green-400 font-medium text-sm">cURL Command</span>
-                      </div>
-                      <pre className="text-sm text-slate-300 font-mono overflow-x-auto">
-                        {commit.ai_summary.how_to_test.curl}
-                      </pre>
-                    </div>
-                  )}
-                </div>
-              )}
-
               {/* Tags */}
               {commit.ai_summary.tags && commit.ai_summary.tags.length > 0 && (
                 <div className="lg:col-span-2">
@@ -320,7 +293,6 @@ export default function CommitDetail() {
                   {commit.files.length} files
                 </span>
               </div>
-              
               <div className="space-y-3">
                 {commit.files.map((file, index) => (
                   <div key={index} className="bg-slate-800/40 rounded-xl p-4 border border-slate-700/30">
@@ -399,8 +371,8 @@ export default function CommitDetail() {
                     </>
                   ) : (
                     <>
-                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                        <path d="M2 5a2 2 0 012-2h7a1 1 0 000 2H4v10a2 2 0 002 2h6l2 2h-8a2 2 0 01-2-2V5zM15 7v3a1 1 0 11-2 0V7.5a.5.5 0 00-.5-.5H10a1 1 0 110-2h2.5A2.5 2.5 0 0115 7.5V7z" />
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
                       </svg>
                       Ask Question
                     </>

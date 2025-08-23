@@ -40,7 +40,7 @@ export const commitsAPI = {
 
 // AI API
 export const aiAPI = {
-  askQuestion: (data) => api.post('/ai/ask', data),
+  askQuestion: (data) => api.post('/ai/qna', data),
 }
 
 export default api
