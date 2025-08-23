@@ -1,8 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 from app.core.database import get_db
-from app.models.models import Project, User, Commit
+from app.models.models import Project, User, Commit, CommitAI
 from app.services.github_service import github_service
 from datetime import datetime
 from pydantic import BaseModel
@@ -150,31 +151,76 @@ async def get_project_commits(
     per_page: int = 20,
     db: AsyncSession = Depends(get_db)
 ):
+    """Get commits for a project with their AI summaries"""
     offset = (page - 1) * per_page
     
-    result = await db.execute(
-        select(Commit)
-        .where(Commit.project_id == project_id)
-        .order_by(Commit.committed_at.desc())
-        .offset(offset)
-        .limit(per_page)
-    )
-    commits = result.scalars().all()
+    print(f"📊 Fetching commits for project {project_id}, page {page}")
     
-    commits_data = []
-    for commit in commits:
-        commit_dict = {
-            "sha": commit.sha,
-            "message": commit.message,
-            "author_name": commit.author_name,
-            "author_login": commit.author_login,
-            "committed_at": commit.committed_at.isoformat(),
-            "files_summary": commit.files_summary or [],
-            "url": commit.url,
-            "project_id": commit.project_id,
-            "ai_summary": None
-        }
-        commits_data.append(commit_dict)
-    
-    print(f"📊 Returning {len(commits_data)} commits for project {project_id}")
-    return commits_data
+    try:
+        # Get commits with a more explicit query
+        commits_query = (
+            select(Commit)
+            .where(Commit.project_id == project_id)
+            .order_by(Commit.committed_at.desc())
+            .offset(offset)
+            .limit(per_page)
+        )
+        
+        result = await db.execute(commits_query)
+        commits = result.scalars().all()
+        
+        print(f"📋 Found {len(commits)} commits in database")
+        
+        commits_data = []
+        for commit in commits:
+            print(f"🔍 Processing commit {commit.sha[:8]}...")
+            
+            # Get AI summary with explicit query
+            ai_query = select(CommitAI).where(CommitAI.sha == commit.sha)
+            ai_result = await db.execute(ai_query)
+            ai_summary = ai_result.scalar_one_or_none()
+            
+            commit_dict = {
+                "sha": commit.sha,
+                "message": commit.message,
+                "author_name": commit.author_name,
+                "author_login": commit.author_login,
+                "committed_at": commit.committed_at.isoformat(),
+                "files_summary": commit.files_summary or [],
+                "url": commit.url,
+                "project_id": commit.project_id,
+                "ai_summary": None
+            }
+            
+            # Add AI summary if it exists
+            if ai_summary:
+                try:
+                    commit_dict["ai_summary"] = {
+                        "simple_explanation": ai_summary.simple_explanation,
+                        "technical_summary": ai_summary.technical_summary,
+                        "how_to_test": ai_summary.how_to_test,
+                        "tags": ai_summary.tags,
+                        "risk_level": ai_summary.risk_level.value if ai_summary.risk_level else "low",
+                        "plan_run_id": ai_summary.plan_run_id
+                    }
+                    print(f"✅ Added AI summary for commit {commit.sha[:8]}")
+                except Exception as e:
+                    print(f"❌ Error formatting AI summary for {commit.sha[:8]}: {e}")
+                    commit_dict["ai_summary"] = None
+            else:
+                print(f"📝 No AI summary found for commit {commit.sha[:8]}")
+            
+            commits_data.append(commit_dict)
+        
+        # Final debug info
+        commits_with_ai = [c for c in commits_data if c["ai_summary"]]
+        print(f"📊 Returning {len(commits_data)} commits, {len(commits_with_ai)} with AI summaries")
+        
+        if commits_with_ai:
+            print(f"🧠 First AI summary example: {commits_with_ai[0]['ai_summary']['simple_explanation'][:100]}...")
+        
+        return commits_data
+        
+    except Exception as e:
+        print(f"❌ Error in get_project_commits: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to fetch commits: {str(e)}")
