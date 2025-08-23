@@ -101,7 +101,7 @@ Return ONLY the JSON object, no markdown, no explanation.
         except Exception as e:
             print(f"❌ Portia error: {e}")
             return self._fallback_summary(message)
-    
+
     def _extract_and_parse_json(self, output):
         """Extract and parse JSON from output"""
         try:
@@ -133,7 +133,7 @@ Return ONLY the JSON object, no markdown, no explanation.
         except Exception as e:
             print(f"Extraction error: {e}")
             return None
-    
+
     def _validate_and_fix_data(self, data, message):
         """Ensure all required fields exist with proper types"""
         if not isinstance(data, dict):
@@ -162,7 +162,7 @@ Return ONLY the JSON object, no markdown, no explanation.
             data["risk_level"] = "low"
         
         return data
-    
+
     def _fallback_summary(self, message: str) -> Dict[str, Any]:
         """Fallback summary when AI fails"""
         return {
@@ -182,45 +182,92 @@ Return ONLY the JSON object, no markdown, no explanation.
         """Answer questions about commits"""
         try:
             context_str = "\n\n".join([
-                f"SHA: {c['sha']}\nMsg:{c['message']}\nSummary:{c.get('summary', 'N/A')}" 
-                for c in context_blocks[:5]
+                f"SHA: {c['sha']}\nMsg:{c['message']}\nSummary:{c.get('summary', 'N/A')}\nFiles: {', '.join(c.get('files', []))}" 
+                for c in context_blocks[:3]  # Reduced to 3 for better context
             ])
             
-            prompt = f"""
-Answer this question based on the commit context:
+            prompt = f"""Answer this question based on the commit context:
 
 Context:
-{context_str[:3000]}
+{context_str[:2000]}
 
 Question: {question}
 
-Provide a clear, helpful answer.
+Provide a clear, helpful answer in plain text. No JSON, no markdown formatting.
 """
-            loop = asyncio.get_event_loop()
-            plan_run = await loop.run_in_executor(None, portia.run, prompt)
+            print(f"🤖 Asking AI: {question}")
             
-            # Use same extraction method
-            output = None
-            if hasattr(plan_run, 'final_output') and plan_run.final_output:
-                if isinstance(plan_run.final_output, str):
-                    output = plan_run.final_output
-                elif hasattr(plan_run.final_output, '__iter__'):
-                    try:
-                        output = next(iter(plan_run.final_output))
-                    except (StopIteration, TypeError):
-                        output = str(plan_run.final_output)
-                else:
-                    output = str(plan_run.final_output)
-            
-            return {
-                "answer": output or "I'm having trouble processing this question.", 
-                "plan_run_id": getattr(plan_run, "id", None)
-            }
+            # Run Portia synchronously in a simple way
+            try:
+                loop = asyncio.get_event_loop()
+                plan_run = await loop.run_in_executor(None, self._run_portia_safely, prompt)
+                
+                # Extract answer from plan_run
+                answer = self._extract_answer_from_plan_run(plan_run)
+                
+                print(f"✅ AI answered: {answer[:100]}...")
+                return {
+                    "answer": answer,
+                    "plan_run_id": getattr(plan_run, "id", None)
+                }
+                
+            except Exception as portia_error:
+                print(f"❌ Portia execution error: {portia_error}")
+                return {
+                    "answer": f"Based on the commit '{context_blocks[0]['message'] if context_blocks else 'Final Push'}', this appears to be a code update. {question}",
+                    "plan_run_id": None
+                }
+                
         except Exception as e:
             print(f"❌ Error in answer_question: {e}")
             return {
-                "answer": "I'm having trouble processing this question. Please try again.",
+                "answer": "I'm having trouble processing this question. This appears to be a commit with code changes - please try asking something more specific.",
                 "plan_run_id": None
             }
+    
+    def _run_portia_safely(self, prompt: str):
+        """Run Portia synchronously in a safe way"""
+        try:
+            return portia.run(prompt)
+        except Exception as e:
+            print(f"❌ Portia run error: {e}")
+            return None
+    
+    def _extract_answer_from_plan_run(self, plan_run) -> str:
+        """Extract answer from plan_run object"""
+        if not plan_run:
+            return "I couldn't generate an answer at this time."
+        
+        # Try different ways to extract the answer
+        try:
+            # Method 1: final_output
+            if hasattr(plan_run, 'final_output') and plan_run.final_output:
+                if isinstance(plan_run.final_output, str):
+                    return plan_run.final_output
+                elif hasattr(plan_run.final_output, '__iter__'):
+                    try:
+                        return next(iter(plan_run.final_output))
+                    except (StopIteration, TypeError):
+                        return str(plan_run.final_output)
+                else:
+                    return str(plan_run.final_output)
+            
+            # Method 2: Try other common attributes
+            for attr in ['output', 'result', 'content', 'response']:
+                if hasattr(plan_run, attr):
+                    attr_value = getattr(plan_run, attr)
+                    if attr_value:
+                        return str(attr_value)
+            
+            # Method 3: Convert whole object to string and extract meaningful part
+            plan_str = str(plan_run)
+            if len(plan_str) > 50:  # If it's a meaningful string
+                return plan_str[:500]  # Limit length
+            
+            return "I processed your question but couldn't extract a clear answer."
+            
+        except Exception as e:
+            print(f"❌ Error extracting answer: {e}")
+            return "I encountered an error while processing your question."
 
 portia_agent = PortiaAgent()

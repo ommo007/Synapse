@@ -15,56 +15,24 @@ export default function Timeline() {
   const [summarizingCommit, setSummarizingCommit] = useState(null)
 
   useEffect(() => {
-  console.log('🔄 Timeline mounted with projectId:', projectId)
-  console.log('🔄 Current URL:', window.location.href)
-  
-  if (!projectId) {
-    console.error('❌ No projectId provided')
-    return
-  }
-  
-  loadData()
-}, [projectId])
+    loadData()
+  }, [projectId])
 
-const loadData = async () => {
-  console.log('🔄 Starting to load project data...')
-  setLoading(true)
-  
-  try {
-    console.log('📡 Fetching project details for ID:', projectId)
-    const projectRes = await projectsAPI.get(projectId)
-    console.log('✅ Project loaded:', projectRes.data)
-    setProject(projectRes.data)
-
-    console.log('📡 Fetching commits for project:', projectId)
-    const commitsRes = await projectsAPI.getCommits(projectId, 1)
-    console.log('✅ Raw commits response:', commitsRes)
-    console.log('✅ Commits data:', commitsRes.data)
-    console.log('📊 Number of commits:', commitsRes.data.length)
-    
-    // Debug each commit
-    commitsRes.data.forEach((commit, index) => {
-      console.log(`Commit ${index + 1}:`, {
-        sha: commit.sha.substring(0, 8),
-        message: commit.message.substring(0, 50),
-        has_ai_summary: !!commit.ai_summary,
-        ai_summary_data: commit.ai_summary
-      })
-    })
-    
-    // Check if any commits have AI summaries
-    const commitsWithAI = commitsRes.data.filter(c => c.ai_summary)
-    console.log('🧠 Commits with AI summaries:', commitsWithAI.length)
-    
-    setCommits(commitsRes.data)
-    setHasMore(commitsRes.data.length === 20)
-  } catch (error) {
-    console.error('❌ Failed to load data:', error)
-    console.error('❌ Error response:', error.response?.data)
-  } finally {
-    setLoading(false)
+  const loadData = async () => {
+    try {
+      const [projectRes, commitsRes] = await Promise.all([
+        projectsAPI.get(projectId),
+        projectsAPI.getCommits(projectId, 1),
+      ])
+      setProject(projectRes.data)
+      setCommits(commitsRes.data)
+      setHasMore(commitsRes.data.length === 20)
+    } catch (error) {
+      console.error('Failed to load data:', error)
+    } finally {
+      setLoading(false)
+    }
   }
-}
 
   const loadMoreCommits = async () => {
     setLoadingMore(true)
@@ -118,23 +86,23 @@ const loadData = async () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900/20 to-slate-900 flex items-center justify-center">
+      <div className="min-h-screen bg-slate-950 text-white flex items-center justify-center">
         <div className="flex items-center gap-3 text-slate-300">
-          <svg className="w-6 h-6 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="w-5 h-5 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
           </svg>
-          <span className="text-lg">Loading commit timeline...</span>
+          <span className="text-base">Loading commit timeline...</span>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900/20 to-slate-900 relative overflow-hidden">
-      {/* Background Elements */}
-      <div className="absolute inset-0 bg-grid-slate-700/15 bg-[length:50px_50px] opacity-30"></div>
-      <div className="absolute top-1/4 left-1/6 w-48 h-48 bg-violet-500/8 rounded-full blur-2xl animate-pulse"></div>
-      <div className="absolute bottom-1/4 right-1/6 w-48 h-48 bg-blue-500/8 rounded-full blur-2xl animate-pulse delay-1000"></div>
+    <div className="min-h-screen bg-slate-950 text-white relative overflow-hidden">
+      {/* Refined Background */}
+      <div className="absolute inset-0 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950"></div>
+      <div className="absolute top-0 left-0 w-1/3 h-1/3 bg-gradient-to-br from-violet-500/5 to-transparent rounded-full blur-3xl"></div>
+      <div className="absolute bottom-0 right-0 w-1/3 h-1/3 bg-gradient-to-tl from-blue-500/5 to-transparent rounded-full blur-3xl"></div>
       
       <div className="relative z-10 container mx-auto px-4 py-6 max-w-6xl">
         {/* Header */}
@@ -162,8 +130,7 @@ const loadData = async () => {
                 </span>
               </h1>
               <p className="text-slate-400">
-                <span className="text-violet-400 font-semibold">{commits.length}</span> commits analyzed • 
-                <span className="text-blue-400 font-semibold ml-2">AI-powered</span> insights
+                <span className="text-violet-400 font-semibold">{commits.length}</span> commits analyzed.   
               </p>
             </div>
           </div>
@@ -209,168 +176,157 @@ const loadData = async () => {
                 
                 {/* Professional Commit Card */}
                 <div className="ml-20 group">
-                  <div className="bg-gradient-to-br from-slate-900/80 to-slate-900/60 backdrop-blur-xl border border-slate-700/60 rounded-2xl p-6 shadow-2xl hover:border-violet-400/40 hover:shadow-violet-500/20 hover:shadow-2xl transition-all duration-500 hover:-translate-y-1 transform">
-                    {/* Enhanced Commit Header */}
-                    <div className="flex items-start justify-between mb-5">
-                      <div className="flex-1">
+                  <div className="bg-slate-900/60 backdrop-blur border border-slate-800 rounded-lg p-5 hover:border-slate-700 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-black/20">
+                    {/* Compact Commit Header */}
+                    <div className="flex items-start justify-between mb-4">
+                      <div className="flex-1 min-w-0">
                         <Link 
                           to={`/commit/${commit.sha}`}
-                          className="text-xl font-bold text-white hover:text-violet-300 transition-all duration-300 block mb-3 group-hover:translate-x-2 transform leading-tight"
+                          className="text-lg font-semibold text-white hover:text-violet-300 transition-colors block mb-3 leading-tight group-hover:translate-x-1 transform duration-300"
                         >
                           {commit.message.split('\n')[0]}
-                          <svg className="w-5 h-5 inline ml-3 opacity-0 group-hover:opacity-100 transition-all duration-300 transform translate-x-0 group-hover:translate-x-1" fill="currentColor" viewBox="0 0 20 20">
+                          <svg className="w-4 h-4 inline ml-2 opacity-0 group-hover:opacity-100 transition-opacity" fill="currentColor" viewBox="0 0 20 20">
                             <path fillRule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clipRule="evenodd" />
                           </svg>
                         </Link>
                         
-                        {/* Enhanced Commit Meta with better typography */}
-                        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 text-sm mb-4">
+                        {/* Compact Meta Grid */}
+                        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 text-sm mb-3">
                           <div className="flex items-center gap-2 text-slate-400">
-                            <div className="p-1.5 bg-violet-500/10 rounded-lg">
-                              <svg className="w-3.5 h-3.5 text-violet-400" fill="currentColor" viewBox="0 0 20 20">
+                            <div className="p-1 bg-violet-500/10 rounded">
+                              <svg className="w-3 h-3 text-violet-400" fill="currentColor" viewBox="0 0 20 20">
                                 <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
                               </svg>
                             </div>
-                            <span className="font-medium text-white truncate">{commit.author_name}</span>
+                            <span className="font-medium text-white truncate text-sm">{commit.author_name}</span>
                           </div>
                           <div className="flex items-center gap-2 text-slate-400">
-                            <div className="p-1.5 bg-blue-500/10 rounded-lg">
-                              <svg className="w-3.5 h-3.5 text-blue-400" fill="currentColor" viewBox="0 0 20 20">
+                            <div className="p-1 bg-blue-500/10 rounded">
+                              <svg className="w-3 h-3 text-blue-400" fill="currentColor" viewBox="0 0 20 20">
                                 <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" />
                               </svg>
                             </div>
-                            <span className="font-medium text-white">{format(new Date(commit.committed_at), 'MMM d')}</span>
+                            <span className="font-medium text-white text-sm">{format(new Date(commit.committed_at), 'MMM d')}</span>
                           </div>
                           
                           <div className="flex items-center gap-2 text-slate-400">
-                            <div className="p-1.5 bg-amber-500/10 rounded-lg">
-                              <svg className="w-3.5 h-3.5 text-amber-400" fill="currentColor" viewBox="0 0 20 20">
+                            <div className="p-1 bg-amber-500/10 rounded">
+                              <svg className="w-3 h-3 text-amber-400" fill="currentColor" viewBox="0 0 20 20">
                                 <path d="M4 4a2 2 0 00-2 2v1h16V6a2 2 0 00-2-2H4zM18 9H2v5a2 2 0 002 2h12a2 2 0 002-2V9zM4 13a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm5-1a1 1 0 100 2h1a1 1 0 100-2H9z" />
                               </svg>
                             </div>
-                            <span className="text-xs font-mono bg-slate-800/60 px-2 py-1 rounded-md text-amber-300 border border-amber-500/20">
+                            <span className="text-xs font-mono bg-slate-800/60 px-1.5 py-0.5 rounded text-amber-300">
                               {commit.sha.substring(0, 7)}
                             </span>
                           </div>
                         </div>
                       </div>
 
-                      {/* Enhanced Action Button */}
+                      {/* Compact Action Button */}
                       {!commit.ai_summary ? (
                         <button
                           onClick={() => handleSummarize(commit.sha)}
                           disabled={summarizingCommit === commit.sha}
-                          className="px-5 py-2.5 bg-gradient-to-r from-violet-600 via-purple-600 to-blue-600 rounded-xl text-white text-sm font-bold hover:from-violet-700 hover:via-purple-700 hover:to-blue-700 transition-all duration-400 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2.5 shadow-lg hover:shadow-violet-500/30 hover:shadow-xl group-hover:scale-105 transform border border-violet-500/20 hover:border-violet-400/40"
+                          className="px-4 py-2 bg-gradient-to-r from-violet-600 to-blue-600 rounded-lg text-white text-sm font-medium hover:from-violet-700 hover:to-blue-700 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 shadow-sm"
                         >
                           {summarizingCommit === commit.sha ? (
                             <>
-                              <svg className="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <svg className="w-3 h-3 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                               </svg>
-                              <span className="font-medium">Analyzing...</span>
+                              <span>Analyzing...</span>
                             </>
                           ) : (
                             <>
-                              <div className="w-5 h-5 bg-gradient-to-br from-yellow-400 to-orange-400 rounded-full flex items-center justify-center">
+                              <div className="w-4 h-4 bg-gradient-to-br from-yellow-400 to-orange-400 rounded-full flex items-center justify-center">
                                 <span className="text-xs">🧠</span>
                               </div>
-                              <span className="font-medium">Generate AI Summary</span>
+                              <span>Generate Summary</span>
                             </>
                           )}
                         </button>
                       ) : (
-                        <div className="flex items-center gap-3">
-                          <div className={`px-4 py-2 rounded-xl text-xs font-bold border-2 ${getRiskLevelColor(commit.ai_summary.risk_level)} shadow-lg`}>
-                            <div className="flex items-center gap-2">
-                              <div className="w-2 h-2 rounded-full bg-current animate-pulse"></div>
-                              {commit.ai_summary.risk_level?.toUpperCase() || 'ANALYZED'}
-                            </div>
+                        <div className="flex items-center gap-2">
+                          <div className={`px-3 py-1 rounded-lg text-xs font-medium ${getRiskLevelColor(commit.ai_summary.risk_level)}`}>
+                            {commit.ai_summary.risk_level?.toUpperCase() || 'ANALYZED'}
                           </div>
-                          <div className="px-3 py-1.5 bg-gradient-to-r from-green-500/20 to-emerald-500/20 text-green-400 rounded-lg text-xs font-semibold border border-green-500/30">
-                            <span className="flex items-center gap-1.5">
-                              <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                              </svg>
-                              AI READY
-                            </span>
+                          <div className="px-2 py-1 bg-green-500/20 text-green-400 rounded text-xs font-medium">
+                            AI ✓
                           </div>
                         </div>
                       )}
                     </div>
 
-                    {/* Enhanced AI Summary Section */}
+                    {/* Compact AI Summary */}
                     {commit.ai_summary && (
-                      <div className="border-t border-slate-700/40 pt-5 space-y-5">
-                        <div className="bg-gradient-to-br from-slate-800/60 to-slate-800/40 rounded-xl p-5 border border-slate-700/30 shadow-inner">
-                          <div className="flex items-start gap-3 mb-4">
-                            <div className="p-2 bg-gradient-to-br from-violet-500/20 to-purple-500/20 rounded-xl border border-violet-500/30">
-                              <div className="w-6 h-6 bg-gradient-to-br from-violet-400 to-purple-400 rounded-lg flex items-center justify-center">
-                                <span className="text-white text-sm font-bold">AI</span>
-                              </div>
+                      <div className="border-t border-slate-800 pt-4 space-y-3">
+                        <div className="bg-slate-800/30 rounded-lg p-4">
+                          <div className="flex items-start gap-2 mb-2">
+                            <div className="p-1.5 bg-violet-500/20 rounded-lg">
+                              <span className="text-violet-400 text-sm font-bold">AI</span>
                             </div>
-                            <div>
-                              <h4 className="font-bold text-white text-lg mb-1">Smart Explanation</h4>
-                              <p className="text-slate-400 text-sm">Generated for all skill levels</p>
+                            <div className="flex-1">
+                              <h4 className="font-semibold text-white text-sm mb-1">Smart Explanation</h4>
+                              <p className="text-slate-300 text-sm leading-relaxed">
+                                {commit.ai_summary.simple_explanation}
+                              </p>
                             </div>
                           </div>
-                          <p className="text-slate-200 leading-relaxed text-base font-medium">
-                            {commit.ai_summary.simple_explanation}
-                          </p>
                         </div>
 
-                        {/* Enhanced Tags */}
+                        {/* Compact Tags */}
                         {commit.ai_summary.tags && commit.ai_summary.tags.length > 0 && (
-                          <div className="flex flex-wrap gap-2.5">
-                            {commit.ai_summary.tags.map((tag, tagIndex) => (
+                          <div className="flex flex-wrap gap-1.5">
+                            {commit.ai_summary.tags.slice(0, 3).map((tag, tagIndex) => (
                               <span 
                                 key={tag} 
-                                className={`px-3 py-1.5 rounded-full text-xs font-bold border-2 transition-all duration-300 hover:scale-105 cursor-default ${
+                                className={`px-2 py-1 rounded text-xs font-medium ${
                                   tagIndex % 3 === 0 
-                                    ? 'bg-violet-500/20 text-violet-300 border-violet-500/40 hover:bg-violet-500/30' 
+                                    ? 'bg-violet-500/20 text-violet-300' 
                                     : tagIndex % 3 === 1 
-                                    ? 'bg-blue-500/20 text-blue-300 border-blue-500/40 hover:bg-blue-500/30'
-                                    : 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40 hover:bg-cyan-500/30'
+                                    ? 'bg-blue-500/20 text-blue-300'
+                                    : 'bg-cyan-500/20 text-cyan-300'
                                 }`}
                               >
-                                <span className="mr-1">#</span>{tag}
+                                #{tag}
                               </span>
                             ))}
+                            {commit.ai_summary.tags.length > 3 && (
+                              <span className="text-xs text-slate-400">
+                                +{commit.ai_summary.tags.length - 3} more
+                              </span>
+                            )}
                           </div>
                         )}
 
-                        {/* Professional Technical Preview */}
+                        {/* Compact Technical Preview */}
                         {commit.ai_summary.technical_summary && commit.ai_summary.technical_summary.length > 0 && (
-                          <div className="bg-slate-800/30 rounded-xl p-4 border border-slate-600/30">
-                            <div className="flex items-center gap-2 mb-3">
-                              <div className="p-1.5 bg-blue-500/20 rounded-lg">
-                                <svg className="w-4 h-4 text-blue-400" fill="currentColor" viewBox="0 0 20 20">
-                                  <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                </svg>
-                              </div>
-                              <span className="text-blue-300 font-semibold text-sm">Technical Highlights</span>
+                          <div className="text-xs">
+                            <div className="flex items-center gap-1.5 mb-2">
+                              <svg className="w-3 h-3 text-blue-400" fill="currentColor" viewBox="0 0 20 20">
+                                <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                              <span className="text-blue-300 font-medium">Technical Highlights</span>
                             </div>
-                            <ul className="space-y-2">
-                              {commit.ai_summary.technical_summary.slice(0, 2).map((item, i) => (
-                                <li key={i} className="flex items-start gap-3 text-sm">
-                                  <div className="w-1.5 h-1.5 bg-blue-400 rounded-full mt-2 flex-shrink-0"></div>
-                                  <span className="text-slate-300 leading-relaxed">{item}</span>
-                                </li>
+                            <div className="space-y-1">
+                              {commit.ai_summary.technical_summary.slice(0, 1).map((item, i) => (
+                                <div key={i} className="flex items-start gap-2">
+                                  <div className="w-1 h-1 bg-blue-400 rounded-full mt-1.5 flex-shrink-0"></div>
+                                  <span className="text-slate-400">{item}</span>
+                                </div>
                               ))}
-                              {commit.ai_summary.technical_summary.length > 2 && (
-                                <li className="flex items-center gap-2 mt-3">
-                                  <div className="w-1.5 h-1.5 bg-violet-400 rounded-full"></div>
-                                  <Link 
-                                    to={`/commit/${commit.sha}`}
-                                    className="text-violet-400 text-xs font-semibold hover:text-violet-300 transition-colors flex items-center gap-1"
-                                  >
-                                    View {commit.ai_summary.technical_summary.length - 2} more details
-                                    <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                                      <path fillRule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clipRule="evenodd" />
-                                    </svg>
-                                  </Link>
-                                </li>
+                              {commit.ai_summary.technical_summary.length > 1 && (
+                                <Link 
+                                  to={`/commit/${commit.sha}`}
+                                  className="text-violet-400 hover:text-violet-300 font-medium flex items-center gap-1 ml-3"
+                                >
+                                  View {commit.ai_summary.technical_summary.length - 1} more details
+                                  <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fillRule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clipRule="evenodd" />
+                                  </svg>
+                                </Link>
                               )}
-                            </ul>
+                            </div>
                           </div>
                         )}
                       </div>

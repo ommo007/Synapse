@@ -14,6 +14,7 @@ function App() {
         {/* or */}
         <Route path="/project/:projectId" element={<Timeline />} />
         {/* Make sure the route matches what you're navigating to */}
+        <Route path="/commit/:sha" element={<CommitDetail />} />
       </Routes>
     </Router>
   )

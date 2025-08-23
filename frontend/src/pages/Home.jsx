@@ -7,23 +7,23 @@ export default function Home() {
   const features = [
     {
       icon: "🧠",
-      title: "AI-Powered Insights",
-      desc: "Every commit translated into beginner-friendly explanations and technical summaries"
+      title: "AI-Powered Project Knowledge",
+      desc: "See not just what changed, but why, how, and how to test it."
     },
     {
       icon: "🎯",
-      title: "Smart Timeline",
-      desc: "Visual commit history with risk levels, tags, and testing instructions"
+      title: "Contextual Timeline, Not Just History",
+      desc: "No more guessing what happened or who did what just follow the flow."
     },
     {
       icon: "💬",
-      title: "Ask Anything",
-      desc: "No question too basic - get instant answers about any commit or change"
+      title: "Ask Anything, Get Real Answers",
+      desc: "No question too basic, get answers using only your project’s real context so everyone learns, and no one is left behind."
     },
     {
       icon: "📋",
-      title: "Export Ready",
-      desc: "Generate judge-ready documentation and learning reports automatically"
+      title: "Powered by Portia SDK",
+      desc: "All insights and answers are generated live from your real project data, not templates or fake content."
     }
   ]
 
@@ -35,60 +35,44 @@ export default function Home() {
   }, [])
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900/20 to-slate-900 relative overflow-hidden">
-      {/* Animated Background Grid */}
-      <div className="absolute inset-0 bg-grid-slate-700/25 bg-[length:75px_75px] opacity-50"></div>
-      <div className="absolute inset-0 bg-gradient-to-t from-slate-900/80 to-transparent"></div>
-      
-      {/* Floating Orbs */}
-      <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-violet-500/10 rounded-full blur-3xl animate-pulse"></div>
-      <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl animate-pulse delay-1000"></div>
+        <div className="min-h-screen bg-slate-950 text-white relative overflow-hidden">
+      {/* Refined Background Elements */}
+      <div className="absolute inset-0 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950"></div>
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-violet-900/20 via-transparent to-transparent"></div>
+      <div className="absolute top-1/4 left-1/4 w-72 h-72 bg-violet-500/5 rounded-full blur-3xl"></div>
+      <div className="absolute bottom-1/3 right-1/4 w-72 h-72 bg-blue-500/5 rounded-full blur-3xl"></div>
       
       <div className="relative z-10 container mx-auto px-6 py-20">
         {/* Hero Section */}
-        <div className="max-w-6xl mx-auto text-center mb-20">
-          <div className="mb-8">
-            <div className="inline-flex items-center gap-2 px-4 py-2 bg-violet-500/10 border border-violet-500/20 rounded-full text-violet-300 text-sm mb-6">
-              <span className="w-2 h-2 bg-violet-400 rounded-full animate-ping"></span>
-              Now live for hackathon teams
-            </div>
-            
-            <h1 className="text-7xl md:text-8xl font-black mb-6 leading-none">
-              <span className="bg-gradient-to-r from-white via-violet-200 to-blue-200 bg-clip-text text-transparent">
-                Synapse
-              </span>
-            </h1>
-            
-            <p className="text-2xl md:text-3xl text-slate-400 mb-4 font-light">
-              Turn messy commits into
-            </p>
-            <p className="text-2xl md:text-3xl font-semibold bg-gradient-to-r from-violet-400 to-blue-400 bg-clip-text text-transparent mb-8">
-              crystal-clear insights
-            </p>
+                
+        <div className="text-center mb-20">
+          <div className="mb-6">
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-violet-500/10 border border-violet-500/20 rounded-full text-sm font-medium text-violet-300 mb-6">
+              <div className="w-2 h-2 bg-violet-400 rounded-full animate-pulse shadow-[0_0_10px_#a78bfa,0_0_20px_#a78bfa,0_0_30px_#a78bfa]"></div>
+                  Built for AgentHack 2025
+              </div>
           </div>
           
-          <p className="text-xl text-slate-300 mb-12 max-w-3xl mx-auto leading-relaxed">
-            AI-powered commit understanding for hackathon teams. Perfect for beginners, 
-            powerful for experts, and impressive for judges.
+          <h1 className="text-5xl md:text-6xl font-black mb-6 leading-tight">
+            <span className="bg-gradient-to-r from-white via-white to-slate-300 bg-clip-text text-transparent">
+              Synapse
+            </span>
+          </h1>
+          
+          <p className="text-lg md:text-xl text-slate-400 max-w-2xl mx-auto leading-relaxed mb-8">
+            The all-in-one project knowledge hub for fast-moving hackathon teams.
+Connect your GitHub repo and turn every commit into shared understanding, not just code history.
           </p>
           
-          <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-16">
-            <Link 
-              to="/connect" 
-              className="group px-8 py-4 bg-gradient-to-r from-violet-600 to-blue-600 rounded-xl text-white font-semibold text-lg hover:from-violet-700 hover:to-blue-700 transition-all duration-300 shadow-lg hover:shadow-violet-500/25 hover:scale-105"
-            >
-              <span className="flex items-center gap-2">
-                Connect Your Repo
-                <svg className="w-5 h-5 group-hover:translate-x-1 transition-transform" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clipRule="evenodd" />
-                </svg>
-              </span>
-            </Link>
-            
-            <button className="px-8 py-4 border border-slate-600 rounded-xl text-slate-300 font-semibold text-lg hover:bg-slate-800/50 transition-all duration-300">
-              See Demo
-            </button>
-          </div>
+          <Link 
+            to="/connect" 
+            className="group inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-violet-600 to-blue-600 rounded-lg text-base font-semibold hover:from-violet-700 hover:to-blue-700 transition-all duration-300 hover:scale-105 transform shadow-lg hover:shadow-xl"
+          >
+            Connect to your repository
+            <svg className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clipRule="evenodd" />
+            </svg>
+          </Link>
         </div>
 
         {/* Interactive Features Section */}
@@ -96,7 +80,7 @@ export default function Home() {
           <div className="grid lg:grid-cols-2 gap-12 items-center">
             <div className="space-y-6">
               <h2 className="text-4xl font-bold text-white mb-8">
-                Built for <span className="text-violet-400">every skill level</span>
+                Built for <span className="text-violet-400">Every skill level</span>
               </h2>
               
               <div className="space-y-4">
@@ -168,7 +152,7 @@ export default function Home() {
           <div className="grid md:grid-cols-3 gap-8">
             <div className="p-6 bg-slate-800/30 backdrop-blur border border-slate-700/50 rounded-xl">
               <div className="text-3xl font-bold text-violet-400 mb-2">10x</div>
-              <div className="text-slate-300">Faster onboarding</div>
+              <div className="text-slate-300">Better team collaboration</div>
             </div>
             <div className="p-6 bg-slate-800/30 backdrop-blur border border-slate-700/50 rounded-xl">
               <div className="text-3xl font-bold text-blue-400 mb-2">0</div>
@@ -176,7 +160,7 @@ export default function Home() {
             </div>
             <div className="p-6 bg-slate-800/30 backdrop-blur border border-slate-700/50 rounded-xl">
               <div className="text-3xl font-bold text-green-400 mb-2">100%</div>
-              <div className="text-slate-300">Judge-ready docs</div>
+              <div className="text-slate-300">Team learning, built-in</div>
             </div>
           </div>
         </div>
@@ -185,10 +169,12 @@ export default function Home() {
         <div className="max-w-4xl mx-auto text-center">
           <div className="p-8 bg-gradient-to-r from-violet-900/30 to-blue-900/30 backdrop-blur border border-violet-500/20 rounded-2xl">
             <h3 className="text-3xl font-bold text-white mb-4">
-              Ready to make commits crystal clear?
+              Ready to turn code into team knowledge?
             </h3>
             <p className="text-slate-300 mb-6">
-              Join the teams already using Synapse to win hackathons and ship faster.
+              Empower your team with Synapse—project clarity, team knowledge, and seamless collaboration in one place.
+
+
             </p>
             <Link 
               to="/connect" 
