@@ -15,24 +15,56 @@ export default function Timeline() {
   const [summarizingCommit, setSummarizingCommit] = useState(null)
 
   useEffect(() => {
-    loadData()
-  }, [projectId])
-
-  const loadData = async () => {
-    try {
-      const [projectRes, commitsRes] = await Promise.all([
-        projectsAPI.get(projectId),
-        projectsAPI.getCommits(projectId, 1),
-      ])
-      setProject(projectRes.data)
-      setCommits(commitsRes.data)
-      setHasMore(commitsRes.data.length === 20)
-    } catch (error) {
-      console.error('Failed to load data:', error)
-    } finally {
-      setLoading(false)
-    }
+  console.log('🔄 Timeline mounted with projectId:', projectId)
+  console.log('🔄 Current URL:', window.location.href)
+  
+  if (!projectId) {
+    console.error('❌ No projectId provided')
+    return
   }
+  
+  loadData()
+}, [projectId])
+
+const loadData = async () => {
+  console.log('🔄 Starting to load project data...')
+  setLoading(true)
+  
+  try {
+    console.log('📡 Fetching project details for ID:', projectId)
+    const projectRes = await projectsAPI.get(projectId)
+    console.log('✅ Project loaded:', projectRes.data)
+    setProject(projectRes.data)
+
+    console.log('📡 Fetching commits for project:', projectId)
+    const commitsRes = await projectsAPI.getCommits(projectId, 1)
+    console.log('✅ Raw commits response:', commitsRes)
+    console.log('✅ Commits data:', commitsRes.data)
+    console.log('📊 Number of commits:', commitsRes.data.length)
+    
+    // Debug each commit
+    commitsRes.data.forEach((commit, index) => {
+      console.log(`Commit ${index + 1}:`, {
+        sha: commit.sha.substring(0, 8),
+        message: commit.message.substring(0, 50),
+        has_ai_summary: !!commit.ai_summary,
+        ai_summary_data: commit.ai_summary
+      })
+    })
+    
+    // Check if any commits have AI summaries
+    const commitsWithAI = commitsRes.data.filter(c => c.ai_summary)
+    console.log('🧠 Commits with AI summaries:', commitsWithAI.length)
+    
+    setCommits(commitsRes.data)
+    setHasMore(commitsRes.data.length === 20)
+  } catch (error) {
+    console.error('❌ Failed to load data:', error)
+    console.error('❌ Error response:', error.response?.data)
+  } finally {
+    setLoading(false)
+  }
+}
 
   const loadMoreCommits = async () => {
     setLoadingMore(true)
@@ -52,11 +84,20 @@ export default function Timeline() {
   const handleSummarize = async (sha) => {
     setSummarizingCommit(sha)
     try {
-      await commitsAPI.summarize(sha)
+      console.log(`🔄 Requesting AI summary for commit: ${sha}`)
+      const response = await commitsAPI.summarize(sha)
+      console.log(`✅ AI Summary response:`, response.data)
+    
+      // Refresh the commits list to show the new summary
+      console.log('🔄 Refreshing commits list...')
       const commitsRes = await projectsAPI.getCommits(projectId, 1)
+      console.log('📊 Updated commits:', commitsRes.data)
       setCommits(commitsRes.data)
+    
     } catch (error) {
-      console.error('Failed to summarize:', error)
+      console.error('❌ Failed to generate AI summary:', error)
+      console.error('Error response:', error.response?.data)
+      setError('Failed to generate AI summary. Please try again.')
     } finally {
       setSummarizingCommit(null)
     }

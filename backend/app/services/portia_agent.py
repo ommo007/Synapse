@@ -55,12 +55,34 @@ Return ONLY the JSON object, no markdown, no explanation.
             loop = asyncio.get_event_loop()
             plan_run = await loop.run_in_executor(None, portia.run, prompt)
             
-            # Extract output from plan_run
-            output = self._extract_output(plan_run)
+            # Extract output from plan_run object - FIX THIS PART
+            output = None
             
+            # Try to get final_output from the plan_run
+            if hasattr(plan_run, 'final_output') and plan_run.final_output:
+                if isinstance(plan_run.final_output, str):
+                    output = plan_run.final_output
+                elif hasattr(plan_run.final_output, '__iter__'):
+                    # If it's a set or list, get the first item
+                    try:
+                        output = next(iter(plan_run.final_output))
+                    except (StopIteration, TypeError):
+                        output = str(plan_run.final_output)
+                else:
+                    output = str(plan_run.final_output)
+            
+            # If no final_output, try other attributes
             if not output:
-                print("❌ No output from Portia")
-                return self._fallback_summary(message)
+                for attr in ['output', 'result', 'content']:
+                    if hasattr(plan_run, attr):
+                        attr_value = getattr(plan_run, attr)
+                        if attr_value:
+                            output = str(attr_value)
+                            break
+            
+            # Last resort - convert whole object to string
+            if not output:
+                output = str(plan_run)
             
             print(f"🔍 Raw output: {output[:200]}...")
             
@@ -70,7 +92,7 @@ Return ONLY the JSON object, no markdown, no explanation.
             if json_data:
                 # Ensure required fields
                 json_data = self._validate_and_fix_data(json_data, message)
-                print(f"✅ AI Summary generated: {json_data['simple_explanation'][:50]}...")
+                print(f"✅ AI Summary generated successfully")
                 return json_data
             else:
                 print("❌ Failed to parse JSON")
@@ -79,26 +101,6 @@ Return ONLY the JSON object, no markdown, no explanation.
         except Exception as e:
             print(f"❌ Portia error: {e}")
             return self._fallback_summary(message)
-    
-    def _extract_output(self, plan_run):
-        """Extract output from plan_run object"""
-        # Try different possible attributes
-        for attr in ['final_output', 'output', 'result', 'content']:
-            if hasattr(plan_run, attr):
-                output = getattr(plan_run, attr)
-                if output:
-                    return str(output)
-        
-        # Try to get from messages
-        if hasattr(plan_run, 'messages') and plan_run.messages:
-            last_message = plan_run.messages[-1]
-            if hasattr(last_message, 'content'):
-                return str(last_message.content)
-            else:
-                return str(last_message)
-        
-        # Last resort - convert whole object to string
-        return str(plan_run)
     
     def _extract_and_parse_json(self, output):
         """Extract and parse JSON from output"""
@@ -196,7 +198,19 @@ Provide a clear, helpful answer.
 """
             loop = asyncio.get_event_loop()
             plan_run = await loop.run_in_executor(None, portia.run, prompt)
-            output = self._extract_output(plan_run)
+            
+            # Use same extraction method
+            output = None
+            if hasattr(plan_run, 'final_output') and plan_run.final_output:
+                if isinstance(plan_run.final_output, str):
+                    output = plan_run.final_output
+                elif hasattr(plan_run.final_output, '__iter__'):
+                    try:
+                        output = next(iter(plan_run.final_output))
+                    except (StopIteration, TypeError):
+                        output = str(plan_run.final_output)
+                else:
+                    output = str(plan_run.final_output)
             
             return {
                 "answer": output or "I'm having trouble processing this question.", 
