@@ -76,9 +76,9 @@ async def github_callback(
         
         await db.commit()
         
-        frontend_url = os.getenv("FRONTEND_URL", "http://localhost:5173")
+        FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")
         response = RedirectResponse(
-            url=f"{frontend_url}/connect?auth=success&user={user.github_login}",
+            url=f"{FRONTEND_URL}/connect?auth=success&user={user.github_login}",
             status_code=302
         )
         
@@ -96,9 +96,9 @@ async def github_callback(
         
     except Exception as e:
         print(f"OAuth error: {e}")
-        frontend_url = os.getenv("FRONTEND_URL", "http://localhost:5173")
+        FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")
         return RedirectResponse(
-            url=f"{frontend_url}/connect?auth=error",
+            url=f"{FRONTEND_URL}/connect?auth=error",
             status_code=302
         )
 
