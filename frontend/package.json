@@ -9,13 +9,14 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@sentry/vite-plugin": "^4.1.1",
+    "axios": "^1.6.2",
+    "clsx": "^2.0.0",
+    "date-fns": "^2.30.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "react-router-dom": "^6.20.1",
-    "axios": "^1.6.2",
-    "date-fns": "^2.30.0",
     "react-markdown": "^9.0.1",
-    "clsx": "^2.0.0"
+    "react-router-dom": "^6.20.1"
   },
   "devDependencies": {
     "@types/react": "^18.2.43",
