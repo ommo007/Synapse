@@ -88,7 +88,8 @@ async def github_callback(
             max_age=30 * 24 * 60 * 60,  # 30 days
             httponly=True,
             samesite="lax",
-            secure=False
+            secure=True,
+            path="/"
         )
         
         response.delete_cookie("oauth_state")
