@@ -1,66 +1,92 @@
+from urllib.parse import urlencode
 import os
-import secrets
 import httpx
-from typing import Optional
 
 GITHUB_AUTH_URL = "https://github.com/login/oauth/authorize"
 GITHUB_TOKEN_URL = "https://github.com/login/oauth/access_token"
 GITHUB_USER_URL = "https://api.github.com/user"
 
+# Read required env vars
+GITHUB_CLIENT_ID = os.getenv("GITHUB_CLIENT_ID")
+GITHUB_CLIENT_SECRET = os.getenv("GITHUB_CLIENT_SECRET")
+
+# IMPORTANT: set this in Render (e.g., https://synapse-93g5.onrender.com)
+BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:8000").rstrip("/")
+
+
+def _build_redirect_uri() -> str:
+    """
+    Must exactly match the Authorization callback URL in your GitHub OAuth App settings.
+    Example: https://synapse-93g5.onrender.com/auth/github/callback
+    """
+    return f"{BACKEND_URL}/auth/github/callback"
+
+
 def get_authorize_url(state: str) -> str:
-    """Generate GitHub OAuth authorization URL"""
-    client_id = os.getenv("GITHUB_CLIENT_ID")
-    redirect_uri = os.getenv("GITHUB_REDIRECT_URI", "http://localhost:8000/auth/github/callback")
-    scope = "repo user:email"
-    
-    if not client_id:
+    """
+    Generate GitHub OAuth authorization URL with consistent redirect_uri.
+    """
+    if not GITHUB_CLIENT_ID:
         raise ValueError("GITHUB_CLIENT_ID not configured")
-    
-    return (
-        f"{GITHUB_AUTH_URL}"
-        f"?client_id={client_id}"
-        f"&redirect_uri={redirect_uri}"
-        f"&scope={scope}"
-        f"&state={state}"
-    )
+
+    redirect_uri = _build_redirect_uri()
+
+    params = {
+        "client_id": GITHUB_CLIENT_ID,
+        "redirect_uri": redirect_uri,
+        # Request scopes you actually need. 'repo' includes private repo access.
+        "scope": "read:user user:email repo",
+        "state": state,
+        "allow_signup": "true",
+        "response_type": "code",
+    }
+    return f"{GITHUB_AUTH_URL}?{urlencode(params)}"
+
 
 async def exchange_code_for_token(code: str) -> str:
-    """Exchange authorization code for access token"""
-    client_id = os.getenv("GITHUB_CLIENT_ID")
-    client_secret = os.getenv("GITHUB_CLIENT_SECRET")
-    redirect_uri = os.getenv("GITHUB_REDIRECT_URI", "http://localhost:8000/auth/github/callback")
-    
-    if not client_id or not client_secret:
+    """
+    Exchange authorization code for access token.
+    redirect_uri must exactly match the one used in get_authorize_url.
+    """
+    if not GITHUB_CLIENT_ID or not GITHUB_CLIENT_SECRET:
         raise ValueError("GitHub OAuth credentials not configured")
-    
+
+    redirect_uri = _build_redirect_uri()
+
     async with httpx.AsyncClient() as client:
-        response = await client.post(
+        resp = await client.post(
             GITHUB_TOKEN_URL,
             headers={"Accept": "application/json"},
             data={
-                "client_id": client_id,
-                "client_secret": client_secret,
+                "client_id": GITHUB_CLIENT_ID,
+                "client_secret": GITHUB_CLIENT_SECRET,
                 "code": code,
                 "redirect_uri": redirect_uri,
             },
+            timeout=30,
         )
-        response.raise_for_status()
-        data = response.json()
-        
-        if "access_token" not in data:
+        resp.raise_for_status()
+        data = resp.json()
+
+        access_token = data.get("access_token")
+        if not access_token:
             raise ValueError(f"Failed to get access token: {data}")
-        
-        return data["access_token"]
+
+        return access_token
+
 
 async def get_github_user(access_token: str) -> dict:
-    """Fetch GitHub user information"""
+    """
+    Fetch GitHub user information using the access token.
+    """
+    headers = {
+        # 'token' is the canonical scheme for GitHub OAuth tokens
+        "Authorization": f"token {access_token}",
+        "Accept": "application/vnd.github.v3+json",
+        "User-Agent": "Synapse-App",
+    }
+
     async with httpx.AsyncClient() as client:
-        response = await client.get(
-            GITHUB_USER_URL,
-            headers={
-                "Authorization": f"Bearer {access_token}",
-                "Accept": "application/vnd.github+json",
-            },
-        )
-        response.raise_for_status()
-        return response.json()
+        resp = await client.get(GITHUB_USER_URL, headers=headers, timeout=30)
+        resp.raise_for_status()
+        return resp.json()
