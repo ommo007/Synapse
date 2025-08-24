@@ -17,3 +17,10 @@ Thumbs.db
 
 # Database (if using SQLite for dev)
 *.sqlite3
+
+# Deployments
+build.sh
+render.yaml
+nixpacks.toml
+Procfile
+railway.json

@@ -49,9 +49,10 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "http://localhost:5173",
+        "https://synapse-puce-rho.vercel.app",
+        "https://*.vercel.app",  # For preview deployments
+        "http://localhost:5173",  # For local development
         "http://localhost:3000",
-        os.getenv("FRONTEND_URL", "http://localhost:5173")
     ],
     allow_credentials=True,
     allow_methods=["*"],
