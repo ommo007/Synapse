@@ -1,0 +1,14 @@
+name: Keep Render Backend Alive
+on:
+  schedule:
+    - cron: '*/14 * * * *'  # Every 14 minutes
+  workflow_dispatch:
+
+jobs:
+  keep-alive:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping backend
+        run: |
+          curl -f https://synapse-93g5.onrender.com || exit 1
+          echo "Backend pinged successfully"
