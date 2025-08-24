@@ -12,14 +12,7 @@ const api = axios.create({
   },
 })
 
-api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('token')
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`
-  }
-  return config
-})
-
+// Auth API
 export const authAPI = {
   githubLogin: () => {
     window.location.href = `${API_BASE_URL}/auth/github/login` // Changed from API_URL
@@ -30,18 +23,21 @@ export const authAPI = {
   logout: () => api.post('/auth/logout'),
 }
 
+// Projects API
 export const projectsAPI = {
   create: (data) => api.post('/projects/', data),
   get: (id) => api.get(`/projects/${id}`),
   getCommits: (id, page = 1) => api.get(`/projects/${id}/commits?page=${page}`),
 }
 
+// Commits API
 export const commitsAPI = {
   get: (sha) => api.get(`/commits/${sha}`),
   summarize: (sha) => api.post(`/commits/${sha}/summarize`),
   getGeminiSummary: (sha) => api.get(`/commits/${sha}/gemini-summary`), // Added missing endpoint
 }
 
+// AI API
 export const aiAPI = {
   ask: (projectId, data) => api.post(`/ai/qna?project_id=${projectId}`, data),
   askQuestion: (data) => api.post('/ai/qna', data), // Added for consistency

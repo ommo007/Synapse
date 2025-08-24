@@ -7,14 +7,15 @@ import CommitDetail from './pages/CommitDetail'
 function App() {
   return (
     <Router>
-      <div className="min-h-screen bg-gray-900 text-white">
-        <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="/connect" element={<Connect />} />
-          <Route path="/project/:projectId" element={<Timeline />} />
-          <Route path="/commit/:sha" element={<CommitDetail />} />
-        </Routes>
-      </div>
+      <Routes>
+        <Route path="/" element={<Home />} />
+        <Route path="/connect" element={<Connect />} />
+        <Route path="/timeline/:projectId" element={<Timeline />} />
+        {/* or */}
+        <Route path="/project/:projectId" element={<Timeline />} />
+        {/* Make sure the route matches what you're navigating to */}
+        <Route path="/commit/:sha" element={<CommitDetail />} />
+      </Routes>
     </Router>
   )
 }

@@ -45,5 +45,18 @@ class GitHubService:
             except Exception as e:
                 print(f"Error fetching commits: {e}")
                 return []
+            
+
+    async def get_commit_details(self, owner: str, repo: str, sha: str) -> dict:
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+            f"https://api.github.com/repos/{owner}/{repo}/commits/{sha}",
+            headers={"Accept": "application/vnd.github.v3+json"}
+        )
+        if response.status_code == 200:
+            return response.json()
+        else:
+            print(f"GitHub API error: {response.status_code}")
+            return {}
 
 github_service = GitHubService()
